@@ -7,7 +7,7 @@
 #define SPOOK_MAX_FRAME_SIZE	0/*352*288*3*/
 #define SPOOK_PORT				7070
 
-//#define JPEG_ENCODER_NAME		"jpeg_dvp"
+#define JPEG_ENCODER_NAME		"jpeg_dvp"
 //#define JPEG_ENCODER2_NAME		"jpeg_usb"
 
 #define FILE_JPEG_ENCODER_NAME	"jpeg_file"
@@ -20,18 +20,18 @@
 
 #define EXCHANGER_SLOT_SIZE		16
 
-//#define RTSP_LIVE_PATH			"/webcam" /* /webcam */
+#define RTSP_LIVE_PATH			"/webcam" /* /webcam */
 //#define RTSP_LIVE_USB_PATH		"/webcam2" /* /webcam */
-#define RTSP_WEB_PATH			"/file" /* /webcam */
+//#define RTSP_WEB_PATH			"/file" /* /webcam */
 
 
-//#define RTSP_LIVE_TRACK			"jpeg_dvp"
+#define RTSP_LIVE_TRACK			"jpeg_dvp"
 //#define RTSP_LIVE2_TRACK		"jpeg_usb"
-#define RTSP_WEBFILE_TRACK		"jpeg_file"
+//#define RTSP_WEBFILE_TRACK		"jpeg_file"
 
 
-#define RTSP_LIVE_AUDIO_TRACK	  "audio"
-#define RTSP_WEBFILE_AUDIO_TRACK  "audio_file"
+//#define RTSP_LIVE_AUDIO_TRACK	  "audio"
+//#define RTSP_WEBFILE_AUDIO_TRACK  "audio_file"
 
 
 
