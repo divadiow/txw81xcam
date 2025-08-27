@@ -954,15 +954,29 @@
 
 /**************************************DVP摄像头型号配置***************************************************************** */
 //如果sdk没有对应型号,需要自己去添加
-#define CMOS_AUTO_LOAD   1
-#define DEV_SENSOR_GC0308 1
-#define DEV_SENSOR_GC0309 1
-#define DEV_SENSOR_GC0311 1
-#define DEV_SENSOR_OV2640 1
-#define DEV_SENSOR_GC0328 1
-#define DEV_SENSOR_GC0329 1
-#define DEV_SENSOR_SP0A19 1
-#define DEV_SENSOR_SP0718 1
+#define CMOS_AUTO_LOAD           	1
+#define DEV_SENSOR_GC0308           1
+#define DEV_SENSOR_GC0309           1
+#define DEV_SENSOR_GC0311           1
+#define DEV_SENSOR_OV2640           1
+#define DEV_SENSOR_GC0328           1
+#define DEV_SENSOR_GC0329           1
+#define DEV_SENSOR_SP0A19           1
+#define DEV_SENSOR_SP0718           1
+#define DEV_SENSOR_BF3A03           1
+#define DEV_SENSOR_BF30A2           1
+#define DEV_SENSOR_BF2013           1
+#define DEV_SENSOR_BF3703           1
+#define DEV_SENSOR_BF3720           1
+#define DEV_SENSOR_GC0312           1
+#define DEV_SENSOR_OV7660           1
+#define DEV_SENSOR_OV7670           1
+#define DEV_SENSOR_OV7725           1
+#define DEV_SENSOR_XC7011_GC1054    1
+#define DEV_SENSOR_XC7011_H63       1
+#define DEV_SENSOR_XC7016_H63       1
+#define DEV_SENSOR_XCG532           1
+
 /*********************************************************************************************************************** */
 
 
