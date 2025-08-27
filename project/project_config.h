@@ -3,7 +3,7 @@
 
 
 
-#define CUSTOMER_ID 1
+#define CUSTOMER_ID 9
 /**
  * CUSTOMER_ID :
  * 1 TXW818_WAV_EVB
@@ -781,9 +781,9 @@
 
 #elif (CUSTOMER_ID == 5)
 //是否使能需要psram的空间
-#define PSRAM_HEAP
-#define CUSTOM_PSRAM_SIZE               (2000*1024)
-#define CUSTOM_SIZE                     (50*1024) 
+//#define PSRAM_HEAP
+//#define CUSTOM_PSRAM_SIZE               (2000*1024)
+#define CUSTOM_SIZE                     (60*1024) 
 #define DEFAULT_SYS_CLK   				(240*1000000) 
 
 
@@ -799,8 +799,8 @@
 
 
 /**********************************sd卡配置*********************************************************** */
-#define SDH_EN                          1
-#define FS_EN                           1
+#define SDH_EN                          0
+#define FS_EN                           0
 /*************************************************************************************************** */
 
 /***************************视频相关宏要打开********************************************************** */
@@ -812,8 +812,8 @@
 /*************************************************************************************************** */
 
 /**********************************************音频相关********************************************* */
-#define AUDIO_EN                        1
-#define AUDIO_DAC_EN                    1
+#define AUDIO_EN                        0
+#define AUDIO_DAC_EN                    0
 /************************************************************************************************** */
 
 
@@ -869,11 +869,11 @@
 #define WIFI_PREVENT_PS_MODE_EN         1           //是否尽可能的阻止sta进入休眠
 
 //设置AP的ip地址以及ip池
-#define IP_ADDR_DEFAULT                 0x0101A8C0  //192.168.1.1
+#define IP_ADDR_DEFAULT                 0x0104A8C0  //192.168.4.1
 #define NET_MASK_DEFAULT                0x00FFFFFF  //255.255.255.0
-#define GW_IP_DEFAULT                   0x0101A8C0  //192.168.1.1
-#define DHCP_START_IP_DEFAULT           0x6401A8C0  //192.168.1.100
-#define DHCP_END_IP_DEFAULT             0xFE01A8C0  //192.168.1.254
+#define GW_IP_DEFAULT                   0x0104A8C0  //192.168.4.1
+#define DHCP_START_IP_DEFAULT           0x6404A8C0  //192.168.4.100
+#define DHCP_END_IP_DEFAULT             0xFE04A8C0  //192.168.4.254
 /************************************************************************************************************************************ */
 
 
@@ -883,8 +883,8 @@
 /***********************************************IO配置,需要用到的IO配置需要在这里配置 **************************************/
 
 //串口配置
-#define PIN_UART0_TX PA_12
-#define PIN_UART0_RX PA_13
+#define PIN_UART0_TX PC_7
+#define PIN_UART0_RX PC_6
 
 //AT命令使用哪个串口
 #define ATCMD_UARTDEV       HG_UART0_DEVID
@@ -956,15 +956,21 @@
 //如果sdk没有对应型号,需要自己去添加
 #define CMOS_AUTO_LOAD   1
 #define DEV_SENSOR_GC0308 1
+#define DEV_SENSOR_GC0309 1
+#define DEV_SENSOR_GC0311 1
 #define DEV_SENSOR_OV2640 1
+#define DEV_SENSOR_GC0328 1
+#define DEV_SENSOR_GC0329 1
+#define DEV_SENSOR_SP0A19 1
+#define DEV_SENSOR_SP0718 1
 /*********************************************************************************************************************** */
 
 
 
 /**********************************************MCU屏驱动配置************************************************************* */
-#define LCD_EN			 				1
-#define LVGL_STREAM_ENABLE              1
-#define LCD_ST7789V_MCU565_EN           1
+#define LCD_EN			 				0
+#define LVGL_STREAM_ENABLE              0
+#define LCD_ST7789V_MCU565_EN           0
 
 
 /************************************************************************************************************************* */
@@ -977,8 +983,8 @@
 
 //jpg0
 #define JPG0_HEAD_RESERVER  0                   //每段JPEG BUF前面预留用于填充其他数据的数据量，无需预留填0
-#define JPG0_BUF_LEN        4096                //8192//1308//2880//4096+24   // 1*1024// 1*1024//       JPG buf长度+reserver长度          1308
-#define JPG0_NODE           80                  //20//18//30*2
+#define JPG0_BUF_LEN        1308                //8192//1308//2880//4096+24   // 1*1024// 1*1024//       JPG buf长度+reserver长度          1308
+#define JPG0_NODE           40                  //20//18//30*2
 #define JPG0_TAIL_RESERVER  0
 
 
@@ -1030,9 +1036,9 @@
 #define NET_PAIR                        1
 #define PRINTER_EN						0
 
-#define AUDIO_EN                        1
-#define AUDIO_DAC_EN                    1
-#define RTP_SOUND                       (1&&AUDIO_EN)
+#define AUDIO_EN                        0
+#define AUDIO_DAC_EN                    0
+#define RTP_SOUND                       (0&&AUDIO_EN)
 
 #define MJPEG_VIDEO                     (1 &&OPENDML_EN&&FS_EN&&SDH_EN&&JPG_EN)          //基于框架的mjpeg录像    
 #define UVC_VIDEO                       (1 &&OPENDML_EN&&FS_EN&&SDH_EN&&USB_EN)          //基于框架的uvc录像
