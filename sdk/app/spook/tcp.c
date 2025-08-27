@@ -361,7 +361,7 @@ static int unbase64( unsigned char *d, int len, int *remain )
 }
 
 #if 0
-static unsigned char s_ptemp[300] = {"TEARDOWN rtsp://192.168.1.1:7070/webcam/ RTSP/1.0\r\nCSeq: 6\r\nUser-Agent: Lavf56.40.101\r\nSession: 9B9C9D9E9FA0A1A2A3A4A5A6A7A8A9\r\n\r\n4A5A6A7A8A9\r\n\r\n"};
+static unsigned char s_ptemp[300] = {"TEARDOWN rtsp://192.168.4.1:7070/webcam/ RTSP/1.0\r\nCSeq: 6\r\nUser-Agent: Lavf56.40.101\r\nSession: 9B9C9D9E9FA0A1A2A3A4A5A6A7A8A9\r\n\r\n4A5A6A7A8A9\r\n\r\n"};
 #endif
 
 	
