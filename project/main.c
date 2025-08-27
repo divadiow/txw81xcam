@@ -932,7 +932,7 @@ __init static void app_network_init()
     if (sys_cfgs.wifi_mode == WIFI_MODE_AP) { //AP
         sys_dhcpd_start();
     }
-    ota_Tcp_Server();
+    //ota_Tcp_Server();
     #if NET_TO_QC == 1
         if (sys_cfgs.wifi_mode == WIFI_MODE_STA){
             sta_send_udp_msg_init();
@@ -1377,10 +1377,10 @@ int main()
     mcu_watchdog_timeout(5);
     OS_WORK_INIT(&main_wk, main_loop2, 0);
     os_run_work_delay(&main_wk, 1000);
-    speedTest_tcp_server(20202);
-	speedTest_tcp_rx_server(20203);
-	Udp_rx_server(20204,1000);
-	Udp_to_ip("192.168.1.100",20202,0);
+    //speedTest_tcp_server(20202);
+	//speedTest_tcp_rx_server(20203);
+	//Udp_rx_server(20204,1000);
+	//Udp_to_ip("192.168.1.100",20202,0);
     return 0;
 }
 #endif
