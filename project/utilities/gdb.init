@@ -1,0 +1,2 @@
+# watchdog close : WDT->WDTKEY
+set *(unsigned int *)0x40015004=0xdddd

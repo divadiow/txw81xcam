@@ -1,0 +1,20 @@
+# See More In CDK help
+#
+# download bin [verify=yes/no]  address=hex number <filename>
+# [verify=yes/no]：选择是否对download的文件进行verify操作；可选，如果不写，则默认使用工程配置中的Flash配置中的Verify选项的值
+# address：设置bin文件烧录的起始地址，必须为16进制数据；
+# <filename>：文件名称，这里支持CDK的内部变量格式的写法；
+# 
+
+set *(unsigned int *)0x40013004=0xdddd
+set *(unsigned int *)0x4002602C=0x3fac87e4
+set *(unsigned int *)0x40020008=0x00000000
+set *(unsigned int *)0x40020008=0x00000000
+set *(unsigned int *)0x40020008=0xFFFFFFFF
+set *(unsigned int *)0x40020188=0x00000000
+
+#set $psr=0x80000000
+
+##download 
+download bin verify=yes address=0 $(ProjectPath)APP.bin
+

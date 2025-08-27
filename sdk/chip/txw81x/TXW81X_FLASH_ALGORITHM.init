@@ -1,0 +1,10 @@
+# watchdog close : WDT->WDTKEY
+set *(unsigned int *)0x40015004=0xdddd
+set $psr=0x80000000
+# sysctrl writable : SYSCTRL->SYS_KEY
+set *(unsigned int *)0x40020000=0x3fac87e4
+#reset peripherals
+set *(unsigned int *)0x40020004=0x00000200
+set *(unsigned int *)0x40020008=0x00000000
+set *(unsigned int *)0x40020008=0x80000000
+

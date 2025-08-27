@@ -1,0 +1,12 @@
+#ifndef __NEWAVI_PLAYER_H
+#define __NEWAVI_PLAYER_H
+#include "stream_define.h"
+#if 0
+enum
+{
+    NEWAVI_PLAYER_LOCATE_FORWARD_INDEX = CUSTOM_STREAM_CMD+1,
+    NEWAVI_PLAYER_LOCATE_REWIND_INDEX,
+    NEWAVI_PLAYER_MAGIC,
+};
+#endif
+#endif
