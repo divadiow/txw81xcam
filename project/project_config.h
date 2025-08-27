@@ -3,7 +3,7 @@
 
 
 
-#define CUSTOMER_ID 9
+#define CUSTOMER_ID 5
 /**
  * CUSTOMER_ID :
  * 1 TXW818_WAV_EVB
