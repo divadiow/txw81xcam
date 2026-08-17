@@ -26,10 +26,21 @@ jobs:
           curl --fail --location --retry 5 --retry-all-errors --output /tmp/csky-toolchain.tar.gz "$url"
           mkdir -p /tmp/csky-toolchain
           tar -xzf /tmp/csky-toolchain.tar.gz -C /tmp/csky-toolchain
-          toolbin="$(dirname "$(find /tmp/csky-toolchain -type f -name 'csky-abiv2-elf-objdump' -print -quit)")"
-          test -n "$toolbin"
-          echo "$toolbin" >> "$GITHUB_PATH"
-          "$toolbin/csky-abiv2-elf-objdump" --version | head -n 2
+
+          echo 'Candidate C-SKY binutils:'
+          find /tmp/csky-toolchain -type f \( -name '*-objdump' -o -name '*-readelf' -o -name '*-nm' -o -name '*-ar' \) -print | sort | head -n 120
+
+          objdump="$(find /tmp/csky-toolchain -type f -name '*-objdump' -print -quit)"
+          test -n "$objdump"
+          chmod +x "$objdump"
+          prefix="${objdump%objdump}"
+
+          for tool in ar nm readelf objdump; do
+            test -x "${prefix}${tool}"
+          done
+
+          echo "CSKY_PREFIX=$prefix" >> "$GITHUB_ENV"
+          "${prefix}objdump" --version | head -n 2
 
       - name: Extract symbols, relocations and exact function disassembly
         shell: bash
@@ -39,20 +50,25 @@ jobs:
           work="$RUNNER_TEMP/libsysctrl"
           mkdir -p "$out" "$work"
 
+          AR="${CSKY_PREFIX}ar"
+          NM="${CSKY_PREFIX}nm"
+          READELF="${CSKY_PREFIX}readelf"
+          OBJDUMP="${CSKY_PREFIX}objdump"
+
           sha256sum libs/libsysctrl.a | tee "$out/libsysctrl.sha256"
-          csky-abiv2-elf-ar t libs/libsysctrl.a | tee "$out/archive-members.txt"
+          "$AR" t libs/libsysctrl.a | tee "$out/archive-members.txt"
           (
             cd "$work"
-            csky-abiv2-elf-ar x "$GITHUB_WORKSPACE/libs/libsysctrl.a"
+            "$AR" x "$GITHUB_WORKSPACE/libs/libsysctrl.a"
           )
 
           find "$work" -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort | tee "$out/extracted-members.txt"
           cp "$work"/*.o "$out"/
 
-          csky-abiv2-elf-nm -A -a -n -S libs/libsysctrl.a > "$out/libsysctrl-nm-address.txt"
-          csky-abiv2-elf-nm -A -a -S --size-sort libs/libsysctrl.a > "$out/libsysctrl-nm-size.txt"
-          csky-abiv2-elf-readelf -h -S -s -r -W libs/libsysctrl.a > "$out/libsysctrl-readelf.txt"
-          csky-abiv2-elf-objdump -f -h -t -r -d --disassembler-options=abi-names libs/libsysctrl.a > "$out/libsysctrl-objdump.txt"
+          "$NM" -A -a -n -S libs/libsysctrl.a > "$out/libsysctrl-nm-address.txt"
+          "$NM" -A -a -S --size-sort libs/libsysctrl.a > "$out/libsysctrl-nm-size.txt"
+          "$READELF" -h -S -s -r -W libs/libsysctrl.a > "$out/libsysctrl-readelf.txt"
+          "$OBJDUMP" -f -h -t -r -d libs/libsysctrl.a > "$out/libsysctrl-objdump.txt"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -74,7 +90,7 @@ jobs:
               Path(f'analysis-out/{name}.txt').write_text(m.group(1) if m else f'{name}: symbol block not found\n')
           PY
 
-          grep -n -E 'system_goto_boot|SET_SKIP|PMUCON7|40018034|reboot_(test|normal)_mode|system_reset_boot' "$out/libsysctrl-objdump.txt" > "$out/high-value-grep.txt" || true
+          grep -n -E 'system_goto_boot|PMUCON7|40018034|reboot_(test|normal)_mode|system_reset_boot|mcu_reset' "$out/libsysctrl-objdump.txt" > "$out/high-value-grep.txt" || true
 
       - name: Upload analysis bundle
         uses: actions/upload-artifact@v4
