@@ -35,7 +35,7 @@ jobs:
           chmod +x "$objdump"
           prefix="${objdump%objdump}"
 
-          for tool in ar nm readelf objdump; do
+          for tool in ar nm readelf objdump objcopy strings size; do
             test -x "${prefix}${tool}"
           done
 
@@ -48,12 +48,19 @@ jobs:
           set -euo pipefail
           out="$GITHUB_WORKSPACE/analysis-out"
           work="$RUNNER_TEMP/libsysctrl"
-          mkdir -p "$out" "$work"
+          mkdir -p "$out" "$work" "$out/csky-binutils"
 
           AR="${CSKY_PREFIX}ar"
           NM="${CSKY_PREFIX}nm"
           READELF="${CSKY_PREFIX}readelf"
           OBJDUMP="${CSKY_PREFIX}objdump"
+
+          for tool in ar nm readelf objdump objcopy strings size; do
+            cp "${CSKY_PREFIX}${tool}" "$out/csky-binutils/"
+          done
+          file "$out"/csky-binutils/* > "$out/csky-binutils-file.txt"
+          ldd "$out/csky-binutils/$(basename "$OBJDUMP")" > "$out/csky-binutils-ldd.txt" || true
+          "$OBJDUMP" -i > "$out/csky-objdump-targets.txt"
 
           sha256sum libs/libsysctrl.a | tee "$out/libsysctrl.sha256"
           "$AR" t libs/libsysctrl.a | tee "$out/archive-members.txt"
@@ -95,7 +102,7 @@ jobs:
       - name: Upload analysis bundle
         uses: actions/upload-artifact@v4
         with:
-          name: txw817-libsysctrl-analysis
+          name: txw817-libsysctrl-analysis-with-tools
           path: analysis-out/
           if-no-files-found: error
           retention-days: 7
