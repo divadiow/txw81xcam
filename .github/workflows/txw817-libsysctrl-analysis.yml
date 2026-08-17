@@ -1,0 +1,85 @@
+name: TXW817 libsysctrl analysis
+
+on:
+  push:
+    branches:
+      - analysis/txw817-libsysctrl-20260817
+    paths:
+      - .github/workflows/txw817-libsysctrl-analysis.yml
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out TXW81X SDK mirror
+        uses: actions/checkout@v4
+
+      - name: Download C-SKY ABI v2 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://github.com/cjacker/wm_sdk_w80x/releases/download/init/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz'
+          curl --fail --location --retry 5 --retry-all-errors --output /tmp/csky-toolchain.tar.gz "$url"
+          mkdir -p /tmp/csky-toolchain
+          tar -xzf /tmp/csky-toolchain.tar.gz -C /tmp/csky-toolchain
+          toolbin="$(dirname "$(find /tmp/csky-toolchain -type f -name 'csky-abiv2-elf-objdump' -print -quit)")"
+          test -n "$toolbin"
+          echo "$toolbin" >> "$GITHUB_PATH"
+          "$toolbin/csky-abiv2-elf-objdump" --version | head -n 2
+
+      - name: Extract symbols, relocations and exact function disassembly
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$GITHUB_WORKSPACE/analysis-out"
+          work="$RUNNER_TEMP/libsysctrl"
+          mkdir -p "$out" "$work"
+
+          sha256sum libs/libsysctrl.a | tee "$out/libsysctrl.sha256"
+          csky-abiv2-elf-ar t libs/libsysctrl.a | tee "$out/archive-members.txt"
+          (
+            cd "$work"
+            csky-abiv2-elf-ar x "$GITHUB_WORKSPACE/libs/libsysctrl.a"
+          )
+
+          find "$work" -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort | tee "$out/extracted-members.txt"
+          cp "$work"/*.o "$out"/
+
+          csky-abiv2-elf-nm -A -a -n -S libs/libsysctrl.a > "$out/libsysctrl-nm-address.txt"
+          csky-abiv2-elf-nm -A -a -S --size-sort libs/libsysctrl.a > "$out/libsysctrl-nm-size.txt"
+          csky-abiv2-elf-readelf -h -S -s -r -W libs/libsysctrl.a > "$out/libsysctrl-readelf.txt"
+          csky-abiv2-elf-objdump -f -h -t -r -d --disassembler-options=abi-names libs/libsysctrl.a > "$out/libsysctrl-objdump.txt"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          src = Path('analysis-out/libsysctrl-objdump.txt').read_text(errors='replace')
+          names = [
+              'system_goto_boot',
+              'system_reboot_test_mode',
+              'system_reboot_normal_mode',
+              'system_reset_boot',
+              'mcu_reset',
+              'mcu_reset2',
+              'pmu_reg_reset',
+              'system_is_wifi_test_mode',
+          ]
+          for name in names:
+              m = re.search(rf'(?ms)^([0-9a-f]+ <{re.escape(name)}>:\n.*?)(?=^[0-9a-f]+ <[^>]+>:\n|\Z)', src)
+              Path(f'analysis-out/{name}.txt').write_text(m.group(1) if m else f'{name}: symbol block not found\n')
+          PY
+
+          grep -n -E 'system_goto_boot|SET_SKIP|PMUCON7|40018034|reboot_(test|normal)_mode|system_reset_boot' "$out/libsysctrl-objdump.txt" > "$out/high-value-grep.txt" || true
+
+      - name: Upload analysis bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: txw817-libsysctrl-analysis
+          path: analysis-out/
+          if-no-files-found: error
+          retention-days: 7
