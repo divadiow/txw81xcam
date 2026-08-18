@@ -7,6 +7,12 @@ on:
     paths:
       - 'diag_input/raw.b64.*'
       - '.github/workflows/txw817-final-package.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'diag_input/raw.b64.*'
+      - '.github/workflows/txw817-final-package.yml'
   workflow_dispatch:
 
 permissions:
