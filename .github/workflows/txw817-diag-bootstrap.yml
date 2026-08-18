@@ -1,0 +1,45 @@
+name: TXW817 diagnostic bootstrap
+
+on:
+  push:
+    branches:
+      - txw817-diag-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out SDK repository
+        uses: actions/checkout@v4
+
+      - name: Record repository metadata
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p _bootstrap
+          git rev-parse HEAD > _bootstrap/commit.txt
+          find . -path './.git' -prune -o -type f -printf '%P\t%s\n' | sort > _bootstrap/file-manifest.tsv
+          du -sh . > _bootstrap/du.txt
+
+      - name: Archive complete checked-out source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          tar --exclude='./.git' --exclude='./txw81xcam-source.tar.gz' -czf txw81xcam-source.tar.gz .
+          sha256sum txw81xcam-source.tar.gz > txw81xcam-source.tar.gz.sha256
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: txw81xcam-source-snapshot
+          path: |
+            txw81xcam-source.tar.gz
+            txw81xcam-source.tar.gz.sha256
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
