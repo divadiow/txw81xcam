@@ -1,0 +1,140 @@
+name: TXW817 diagnostic final publish
+
+on:
+  push:
+    branches:
+      - txw817-diag-build
+    paths:
+      - 'diag_input/**'
+      - '.github/workflows/txw817-diag-final-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-package-publish:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: txw817-diag-build
+          fetch-depth: 0
+
+      - name: Reconstruct compiled diagnostic application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $chunks = Get-ChildItem -LiteralPath 'diag_input' -Filter 'raw.b64.*' | Sort-Object Name
+          if (-not $chunks) { throw 'No raw firmware chunks found' }
+          $joined = ($chunks | ForEach-Object { (Get-Content -LiteralPath $_.FullName -Raw).Trim() }) -join ''
+          $raw = [Convert]::FromBase64String($joined)
+          New-Item -ItemType Directory -Force -Path work | Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $PWD 'work/txw817_diag_raw.bin'), $raw)
+          if ($raw.Length -lt 4096) { throw "Firmware is too small: $($raw.Length)" }
+          $ascii = [Text.Encoding]::ASCII.GetString($raw)
+          if (-not $ascii.Contains('TXWDIAG')) { throw 'Compiled image lacks TXWDIAG marker' }
+          if (-not $ascii.Contains('AT+DIAG')) { throw 'Compiled image lacks AT+DIAG command marker' }
+          @'
+          from pathlib import Path
+          data=Path('work/txw817_diag_raw.bin').read_bytes()
+          base=0x18000000
+          def rec(addr, typ, payload):
+              body=bytes([len(payload),(addr>>8)&255,addr&255,typ])+payload
+              return ':'+(body+bytes([(-sum(body))&255])).hex().upper()
+          lines=[]; upper=None
+          for off in range(0,len(data),16):
+              a=base+off; u=(a>>16)&0xffff
+              if u!=upper:
+                  lines.append(rec(0,4,u.to_bytes(2,'big'))); upper=u
+              lines.append(rec(a&0xffff,0,data[off:off+16]))
+          lines.append(rec(0,1,b''))
+          Path('work/project.hex').write_text('\n'.join(lines)+'\n',encoding='ascii')
+          '@ | python -
+
+      - name: Run Taixin image builders
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item -LiteralPath project -Destination work/vendor -Recurse -Force
+          Copy-Item -LiteralPath work/project.hex -Destination work/vendor/project.hex -Force
+          Push-Location work/vendor
+          try {
+            if (Test-Path parameter.bincfg) { Copy-Item parameter.bincfg parameter.cfg -Force }
+            if (-not (Test-Path parameter.cfg)) { throw 'parameter.cfg unavailable' }
+            $start = Get-Date
+            & .\BinScript.exe .\BinScript.BinScript
+            if ($LASTEXITCODE -ne 0) { throw "BinScript failed: $LASTEXITCODE" }
+            if (-not (Test-Path txw81x_fpv.bin)) { throw 'txw81x_fpv.bin was not produced' }
+            & .\makecode.exe
+            if ($LASTEXITCODE -ne 0) { throw "makecode failed: $LASTEXITCODE" }
+            Get-ChildItem -Recurse -File | Where-Object LastWriteTime -ge $start.AddSeconds(-2) | ForEach-Object {
+              "{0}`t{1}`t{2:o}" -f $_.FullName,$_.Length,$_.LastWriteTime
+            } | Set-Content ..\generated.tsv
+          } finally { Pop-Location }
+
+      - name: Select the actual flash image and stage essentials
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+          import json, hashlib, shutil
+          root=Path('work/vendor')
+          raw=Path('work/txw817_diag_raw.bin').read_bytes()
+          raw_len=len(raw)
+          candidates=[]
+          for p in root.rglob('*.bin'):
+              if p.name.lower() in {'loader_compress.bin','param.bin'}:
+                  continue
+              data=p.read_bytes(); size=len(data); name=p.name.lower()
+              if size < 4096: continue
+              score=0
+              if p.name.lower()=='txw81x_fpv.bin': score+=5
+              if any(k in name for k in ('download','flash','firmware','merge','all','pack','code')): score+=8
+              if size>raw_len: score+=5
+              if b'TXWDIAG' in data: score+=7
+              # A final container may not contain the marker in cleartext; filename/size then dominate.
+              candidates.append((score,size,p))
+          if not candidates:
+              raise SystemExit('Vendor tools produced no plausible flash image')
+          candidates.sort(key=lambda x:(x[0],x[1]),reverse=True)
+          score,size,best=candidates[0]
+          outdir=Path('diag_release')
+          if outdir.exists(): shutil.rmtree(outdir)
+          outdir.mkdir()
+          shutil.copy2(best,outdir/'TXW817_810_DIAG_FLASH.bin')
+          # Keep the raw image internally only for validation, not in the user package.
+          (outdir/'PACKAGED_FROM.txt').write_text(str(best),encoding='utf-8')
+          (outdir/'candidate_manifest.json').write_text(json.dumps({
+            'selected':str(best),'score':score,'size':size,
+            'sha256':hashlib.sha256((outdir/'TXW817_810_DIAG_FLASH.bin').read_bytes()).hexdigest(),
+            'candidates':[{'score':s,'size':z,'path':str(p)} for s,z,p in candidates]
+          },indent=2),encoding='utf-8')
+          # Hard checks on the chosen output.
+          selected=(outdir/'TXW817_810_DIAG_FLASH.bin').read_bytes()
+          if len(selected)<4096: raise SystemExit('Selected image is too small')
+          if best.name.lower()=='txw81x_fpv.bin' and b'TXWDIAG' not in selected:
+              raise SystemExit('Unwrapped txw81x_fpv.bin lacks diagnostic marker')
+          '@ | python -
+
+      - name: Publish binary on the build branch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f diag_release/TXW817_810_DIAG_FLASH.bin diag_release/PACKAGED_FROM.txt diag_release/candidate_manifest.json
+          if (git diff --cached --quiet) { Write-Host 'No release changes to commit'; exit 0 }
+          git commit -m 'Publish TXW817 diagnostic flash image [skip ci]'
+          git push origin HEAD:txw817-diag-build
+
+      - name: Upload packaged image
+        uses: actions/upload-artifact@v4
+        with:
+          name: TXW817_810_DIAG_FLASH
+          path: diag_release
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
