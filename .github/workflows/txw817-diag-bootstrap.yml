@@ -13,37 +13,69 @@ permissions:
   contents: read
 
 jobs:
-  export-source:
+  probe-build-environment:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check out SDK repository
         uses: actions/checkout@v4
 
-      - name: Record repository metadata
+      - name: Install extraction utilities
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p _bootstrap
-          git rev-parse HEAD > _bootstrap/commit.txt
-          find . -path './.git' -prune -o -type f -printf '%P\t%s\n' | sort > _bootstrap/file-manifest.tsv
-          du -sh . > _bootstrap/du.txt
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full file binutils
 
-      - name: Archive complete checked-out source
+      - name: Download and inspect C-SKY toolchain
         shell: bash
         run: |
           set -euxo pipefail
-          rm -f /tmp/txw81xcam-source.tar.gz /tmp/txw81xcam-source.tar.gz.sha256
-          tar -C "$GITHUB_WORKSPACE" --exclude='./.git' -czf /tmp/txw81xcam-source.tar.gz .
-          sha256sum /tmp/txw81xcam-source.tar.gz > /tmp/txw81xcam-source.tar.gz.sha256
+          mkdir -p _probe/toolchain _probe/script
+          curl -L --fail --retry 5 --retry-delay 2 \
+            -o /tmp/csky-toolchain.zip \
+            https://github.com/openLuat/luatos-soc-air101/releases/download/v2001.gcc/csky-elfabiv2-tools-x86_64-minilibc-20230301.zip
+          sha256sum /tmp/csky-toolchain.zip | tee _probe/toolchain-archive.sha256
+          unzip -q /tmp/csky-toolchain.zip -d _probe/toolchain
+          find _probe/toolchain -type f -printf '%P\t%s\n' | sort > _probe/toolchain-files.tsv
+          COMPILER="$(find _probe/toolchain -type f -name 'csky-elfabiv2-gcc' -perm -111 | head -n 1)"
+          test -n "$COMPILER"
+          echo "$COMPILER" > _probe/compiler-path.txt
+          "$COMPILER" --version | tee _probe/compiler-version.txt
+          "$COMPILER" -v 2> _probe/compiler-v.txt || true
+          "$COMPILER" -print-search-dirs > _probe/compiler-search-dirs.txt
+          "$COMPILER" -print-sysroot > _probe/compiler-sysroot.txt
+          "$COMPILER" -print-libgcc-file-name > _probe/compiler-libgcc.txt
+          "$COMPILER" -dumpspecs > _probe/compiler-specs.txt
 
-      - name: Upload source snapshot
+      - name: Extract and inspect CDK script archive
+        shell: bash
+        run: |
+          set -euxo pipefail
+          7z x -y project/script.7z -o_probe/script | tee _probe/script-extract.log
+          find _probe/script -type f -printf '%P\t%s\n' | sort > _probe/script-files.tsv
+          grep -RInaE 'csky|ck803|gcc|ld|objcopy|objdump|readelf|mcpu|mlittle|mhard|mfloat|specs|libsysctrl|gcc_csky' _probe/script \
+            > _probe/script-build-references.txt || true
+          find _probe/script -type f -maxdepth 4 -exec file '{}' ';' > _probe/script-file-types.txt
+
+      - name: Inspect vendor startup and linker inputs
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p _probe/archive
+          nm -A libs/libcore.a > _probe/archive/libcore-nm.txt
+          nm -A libs/libsysctrl.a > _probe/archive/libsysctrl-nm.txt
+          readelf -h libs/libcore.a > _probe/archive/libcore-readelf-h.txt || true
+          cp project/fpv_app_umac4.cdkproj _probe/archive/
+          cp project/utilities/gcc_csky.ld _probe/archive/
+          cp project/utilities/gcc_csky_qspiboot.ld _probe/archive/
+          cp project/BuildBIN.sh project/BinScript.BinScript project/makecode.ini _probe/archive/
+
+      - name: Upload build probe
         uses: actions/upload-artifact@v4
         with:
-          name: txw81xcam-source-snapshot
-          path: |
-            /tmp/txw81xcam-source.tar.gz
-            /tmp/txw81xcam-source.tar.gz.sha256
-          compression-level: 0
+          name: txw817-build-environment-probe
+          path: _probe
+          compression-level: 9
           if-no-files-found: error
           retention-days: 7
