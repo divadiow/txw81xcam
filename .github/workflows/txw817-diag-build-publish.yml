@@ -1,0 +1,136 @@
+name: Build and publish TXW817 diagnostic firmware
+
+on:
+  push:
+    branches:
+      - txw817-diag-build
+    paths-ignore:
+      - 'diag/prebuilt/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    if: ${{ !contains(github.event.head_commit.message, '[skip txwdiag]') }}
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: txw817-diag-build
+          fetch-depth: 0
+
+      - name: Enable Windows Subsystem for Linux build shell prerequisites
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path _toolchain | Out-Null
+          Invoke-WebRequest -UseBasicParsing \
+            -Uri 'https://github.com/openLuat/luatos-soc-air101/releases/download/v2001.gcc/csky-elfabiv2-tools-x86_64-minilibc-20230301.zip' \
+            -OutFile '_toolchain\toolchain.zip'
+          Expand-Archive -LiteralPath '_toolchain\toolchain.zip' -DestinationPath '_toolchain' -Force
+          Get-ChildItem _toolchain -Recurse -File | Select-Object FullName,Length | Out-File _toolchain\manifest.txt
+
+      - name: Build C-SKY ELF under Ubuntu container
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            -w /work \
+            ubuntu:24.04 \
+            bash -lc "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y python3 unzip libc6 >/dev/null && find _toolchain -type f -name 'csky*' -exec chmod +x {} + || true && python3 diag/build_diag.py"
+          if (-not (Test-Path 'diag\out\SUCCESS')) { throw 'ELF build did not create SUCCESS' }
+          if (-not (Test-Path 'diag\out\txw817_810_diag_v0.1.hex')) { throw 'ELF build did not create HEX' }
+
+      - name: Run Taixin vendor image packers
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $start = Get-Date
+          Copy-Item 'diag\out\txw817_810_diag_v0.1.hex' 'project\project.hex' -Force
+          if (Test-Path 'project\parameter.bincfg') {
+              Copy-Item 'project\parameter.bincfg' 'project\parameter.cfg' -Force
+          }
+          Push-Location project
+          try {
+              & .\BinScript.exe .\BinScript.BinScript
+              if ($LASTEXITCODE -ne 0) { throw "BinScript.exe failed with $LASTEXITCODE" }
+              if (-not (Test-Path .\txw81x_fpv.bin)) { throw 'txw81x_fpv.bin was not generated' }
+              & .\makecode.exe
+              if ($LASTEXITCODE -ne 0) { throw "makecode.exe failed with $LASTEXITCODE" }
+          }
+          finally {
+              Pop-Location
+          }
+          Remove-Item 'diag\prebuilt' -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path 'diag\prebuilt' | Out-Null
+          Copy-Item 'diag\out\txw817_810_diag_v0.1.*' 'diag\prebuilt\' -Force
+          Copy-Item 'diag\out\build_report.json' 'diag\prebuilt\' -Force
+          Copy-Item 'diag\out\validation.txt' 'diag\prebuilt\' -Force
+          Get-ChildItem project -File | Where-Object {
+              $_.Extension -in '.bin','.hex','.cfg','.ini','.txt','.log' -and
+              ($_.LastWriteTime -ge $start.AddSeconds(-5) -or $_.Name -in 'txw81x_fpv.bin','param.bin','project.hex')
+          } | ForEach-Object {
+              Copy-Item -LiteralPath $_.FullName -Destination ('diag\prebuilt\vendor_' + $_.Name) -Force
+          }
+          $bins = Get-ChildItem 'diag\prebuilt' -File -Filter '*.bin'
+          if (-not $bins) { throw 'No BIN product was collected' }
+          $manifest = [ordered]@{
+              target = 'TXW817/TXW810 (TXW81x SDK, CHIP_ID 0x8410 packaging profile)'
+              build_validated = $true
+              vendor_packers_completed = $true
+              hardware_validated = $false
+              generated_utc = (Get-Date).ToUniversalTime().ToString('o')
+              source_commit = '${{ github.sha }}'
+              files = @(Get-ChildItem 'diag\prebuilt' -File | ForEach-Object {
+                  [ordered]@{
+                      name = $_.Name
+                      length = $_.Length
+                      sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant()
+                  }
+              })
+          }
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 'diag\prebuilt\manifest.json'
+          Get-ChildItem 'diag\prebuilt' | Format-Table Name,Length,LastWriteTime -AutoSize
+
+      - name: Commit validated prebuilt files to development branch
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'diag/prebuilt'
+          if (git diff --cached --quiet) {
+              Write-Host 'No prebuilt artifact changes to commit.'
+          } else {
+              git commit -m 'Publish TXW817 diagnostic build [skip txwdiag]'
+              git push origin HEAD:txw817-diag-build
+          }
+
+      - name: Upload complete package
+        uses: actions/upload-artifact@v4
+        with:
+          name: txw817-diag-complete-published
+          path: diag/prebuilt/
+          compression-level: 6
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: txw817-diag-publish-failure
+          path: |
+            diag/out/
+            _toolchain/manifest.txt
+            project/*.log
+            project/*.txt
+            project/*.ini
+            project/*.bin
+          if-no-files-found: ignore
+          retention-days: 30
