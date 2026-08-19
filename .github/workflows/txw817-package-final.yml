@@ -1,16 +1,19 @@
-name: TXW817 final diagnostic package
+name: TXW817 PACKAGE LINKED IMAGE V2
 
 on:
   push:
     branches:
       - txw817-diag-build
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  package:
+  package-linked-diag-v2:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -47,16 +50,9 @@ jobs:
           [IO.File]::WriteAllLines('project/project.hex', $lines, [Text.Encoding]::ASCII)
 
           $decoded = [IO.File]::ReadAllBytes('project/txw817_diag_linked.bin')
-          $needle = [Text.Encoding]::ASCII.GetBytes('TXWDIAG READY')
-          $found = $false
-          for ($i = 0; $i -le $decoded.Length - $needle.Length; $i++) {
-              $ok = $true
-              for ($j = 0; $j -lt $needle.Length; $j++) {
-                  if ($decoded[$i + $j] -ne $needle[$j]) { $ok = $false; break }
-              }
-              if ($ok) { $found = $true; break }
-          }
-          if (-not $found) { throw 'Linked image does not contain TXWDIAG READY marker' }
+          $text = [Text.Encoding]::ASCII.GetString($decoded)
+          if (-not $text.Contains('TXWDIAG READY')) { throw 'Linked image does not contain TXWDIAG READY marker' }
+          if (-not $text.Contains('AT+DIAG=EXEC,')) { throw 'Linked image does not contain EXEC command marker' }
 
       - name: Run Taixin image tools
         shell: cmd
@@ -65,7 +61,9 @@ jobs:
           @echo on
           copy /y parameter.bincfg parameter.cfg
           BinScript.exe BinScript.BinScript > binscript.log 2>&1
-          if errorlevel 1 type binscript.log & exit /b 1
+          set BIN_RC=%ERRORLEVEL%
+          type binscript.log
+          if not "%BIN_RC%"=="0" exit /b %BIN_RC%
           if not exist txw81x_fpv.bin exit /b 2
           if not exist param.bin exit /b 3
           makecode.exe > makecode.log 2>&1
@@ -95,7 +93,7 @@ jobs:
       - name: Upload packaged diagnostic firmware
         uses: actions/upload-artifact@v4
         with:
-          name: TXW817-810-diagnostic-firmware
+          name: TXW817-810-diagnostic-firmware-v2
           path: essential
           compression-level: 0
           if-no-files-found: error
