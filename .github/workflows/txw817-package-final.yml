@@ -1,12 +1,10 @@
 name: TXW817 diagnostic package
 
 on:
-  workflow_dispatch:
-  push:
+  pull_request:
     branches:
-      - txw817-diag-build
-    paths:
-      - diag_trigger/run.txt
+      - main
+  workflow_dispatch:
 
 concurrency:
   group: txw817-diagnostic-package
