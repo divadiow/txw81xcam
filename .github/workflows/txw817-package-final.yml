@@ -1,0 +1,102 @@
+name: TXW817 final diagnostic package
+
+on:
+  push:
+    branches:
+      - txw817-diag-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out SDK repository
+        uses: actions/checkout@v4
+
+      - name: Decode linked image and generate Intel HEX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raw = [Convert]::FromBase64String((Get-Content -Raw 'diag_input/diag.raw.bin.b64').Trim())
+          if ($raw.Length -ne 6824) { throw "Unexpected linked image length: $($raw.Length)" }
+          [IO.File]::WriteAllBytes('project/txw817_diag_linked.bin', $raw)
+
+          function New-IHexRecord([int]$Address, [int]$Type, [byte[]]$Data) {
+              $len = $Data.Length
+              $sum = $len + (($Address -shr 8) -band 0xff) + ($Address -band 0xff) + ($Type -band 0xff)
+              foreach ($b in $Data) { $sum += $b }
+              $check = (-$sum) -band 0xff
+              $hexData = -join ($Data | ForEach-Object { $_.ToString('X2') })
+              return ':' + $len.ToString('X2') + $Address.ToString('X4') + $Type.ToString('X2') + $hexData + $check.ToString('X2')
+          }
+
+          $lines = [Collections.Generic.List[string]]::new()
+          $lines.Add((New-IHexRecord -Address 0 -Type 4 -Data ([byte[]](0x18,0x00))))
+          for ($offset = 0; $offset -lt $raw.Length; $offset += 16) {
+              $count = [Math]::Min(16, $raw.Length - $offset)
+              $chunk = [byte[]]::new($count)
+              [Array]::Copy($raw, $offset, $chunk, 0, $count)
+              $lines.Add((New-IHexRecord -Address $offset -Type 0 -Data $chunk))
+          }
+          $lines.Add((New-IHexRecord -Address 0 -Type 5 -Data ([byte[]](0x18,0x00,0x01,0x80))))
+          $lines.Add((New-IHexRecord -Address 0 -Type 1 -Data ([byte[]]@())))
+          [IO.File]::WriteAllLines('project/project.hex', $lines, [Text.Encoding]::ASCII)
+
+          $decoded = [IO.File]::ReadAllBytes('project/txw817_diag_linked.bin')
+          $needle = [Text.Encoding]::ASCII.GetBytes('TXWDIAG READY')
+          $found = $false
+          for ($i = 0; $i -le $decoded.Length - $needle.Length; $i++) {
+              $ok = $true
+              for ($j = 0; $j -lt $needle.Length; $j++) {
+                  if ($decoded[$i + $j] -ne $needle[$j]) { $ok = $false; break }
+              }
+              if ($ok) { $found = $true; break }
+          }
+          if (-not $found) { throw 'Linked image does not contain TXWDIAG READY marker' }
+
+      - name: Run Taixin image tools
+        shell: cmd
+        working-directory: project
+        run: |
+          @echo on
+          copy /y parameter.bincfg parameter.cfg
+          BinScript.exe BinScript.BinScript > binscript.log 2>&1
+          if errorlevel 1 type binscript.log & exit /b 1
+          if not exist txw81x_fpv.bin exit /b 2
+          if not exist param.bin exit /b 3
+          makecode.exe > makecode.log 2>&1
+          set MAKECODE_RC=%ERRORLEVEL%
+          type makecode.log
+          dir /s /b
+          if not "%MAKECODE_RC%"=="0" exit /b %MAKECODE_RC%
+          if not exist APP.bin exit /b 4
+
+      - name: Validate and stage essential firmware
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Get-Item 'project/APP.bin'
+          if ($app.Length -lt 8192) { throw "APP.bin is implausibly small: $($app.Length)" }
+          if ($app.Length -gt 1048576) { throw "APP.bin exceeds configured flash size: $($app.Length)" }
+          New-Item -ItemType Directory -Force -Path essential | Out-Null
+          Copy-Item 'project/APP.bin' 'essential/TXW817_810_DIAG_FLASH.bin'
+          Copy-Item 'project/txw817_diag_linked.bin' 'essential/TXW817_810_DIAG_LINKED_RAW.bin'
+          Copy-Item 'project/project.hex' 'essential/TXW817_810_DIAG_LINKED.hex'
+          Copy-Item 'project/binscript.log' 'essential/binscript.log'
+          Copy-Item 'project/makecode.log' 'essential/makecode.log'
+          Get-ChildItem project -File | Sort-Object Name | ForEach-Object {
+              '{0}`t{1}' -f $_.Name, $_.Length
+          } | Set-Content essential/package-files.txt
+
+      - name: Upload packaged diagnostic firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: TXW817-810-diagnostic-firmware
+          path: essential
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
