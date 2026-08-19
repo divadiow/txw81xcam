@@ -1,4 +1,4 @@
-name: TXW817 PACKAGE LINKED IMAGE V5
+name: TXW817 PACKAGE LINKED IMAGE V6
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  package-linked-diag-v5:
+  package-linked-diag-v6:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -32,6 +32,10 @@ jobs:
               'diag_input/v2.raw.b64.03',
               'diag_input/v2.raw.b64.04'
           )
+          foreach ($p in $partPaths) {
+              $t = (Get-Content -Raw $p).Trim()
+              Write-Host "PART=$p LEN=$($t.Length)"
+          }
           $b64 = (($partPaths | ForEach-Object { (Get-Content -Raw $_).Trim() }) -join '')
           if ($b64.Length -ne 9100) { throw "Unexpected combined base64 length: $($b64.Length)" }
           $raw = [Convert]::FromBase64String($b64)
@@ -102,7 +106,7 @@ jobs:
       - name: Upload packaged diagnostic firmware
         uses: actions/upload-artifact@v4
         with:
-          name: TXW817-810-diagnostic-firmware-v5
+          name: TXW817-810-diagnostic-firmware-v6
           path: essential
           compression-level: 0
           if-no-files-found: error
