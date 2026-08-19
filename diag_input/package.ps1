@@ -18,7 +18,7 @@ remap(210, 0, v_param_len);
 setbuf16(0, v_param_len);
 outrange(0, v_param_len, 10);
 write(bin, param.bin);
-'@|sc project/BinScript.BinScript -Encoding ascii
+'@|Set-Content project/BinScript.BinScript -Encoding ascii
 pushd project
 & .\BinScript.exe .\BinScript.BinScript
 if($LASTEXITCODE){throw "BinScript rc=$LASTEXITCODE"}
