@@ -27,24 +27,26 @@ foreach ($marker in @('TXWDIAG READY', 'AT+DIAG=EXEC,', 'TXWDIAG ROMGO')) {
 }
 
 [IO.File]::WriteAllBytes('project/txw81x_fpv.bin', $linked)
-Copy-Item 'project/parameter.bincfg' 'project/parameter.cfg' -Force
 
-@'
-reset(ibuf);
-reset(obuf);
-read(bin, txw81x_fpv.bin);
-def16_at(v_param_len, 180);
-read(bin, parameter.cfg);
-memmode(ibuf, 32, lit);
-remap(210, 0, v_param_len);
-setbuf16(0, v_param_len);
-outrange(0, v_param_len, 10);
-write(bin, param.bin);
-'@ | Set-Content 'project/BinScript.BinScript' -Encoding ascii
+$parameterCfg = [IO.File]::ReadAllBytes('project/parameter.bincfg')
+$parameterSourceOffset = 0x210
+$parameterLength = 0x800
+if ($parameterCfg.Length -lt ($parameterSourceOffset + $parameterLength)) {
+    throw "parameter.bincfg is too short: $($parameterCfg.Length) bytes"
+}
+
+$param = [byte[]]::new($parameterLength)
+[Array]::Copy($parameterCfg, $parameterSourceOffset, $param, 0, $parameterLength)
+$declaredLength = [BitConverter]::ToUInt16($param, 0)
+if ($declaredLength -ne $parameterLength) {
+    throw ('parameter block declares 0x{0:X4}, expected 0x{1:X4}' -f $declaredLength, $parameterLength)
+}
+[IO.File]::WriteAllBytes('project/param.bin', $param)
+Write-Host "Generated param.bin: $($param.Length) bytes"
 
 $iniPath = 'project/makecode.ini'
 $ini = Get-Content $iniPath -Raw
-$ini = [regex]::Replace($ini, '(?mi)^\s*CodeAddrOffset\s*=.*$', 'CodeAddrOffset=1000')
+$ini = [regex]::Replace($ini, '(?mi)^\s*CodeAddrOffset\s*=.*$', 'CodeAddrOffset=c00')
 $ini = [regex]::Replace($ini, '(?mi)^\s*Post_Script\s*=.*$', 'Post_Script=')
 [IO.File]::WriteAllText((Resolve-Path $iniPath), $ini, [Text.Encoding]::ASCII)
 
@@ -54,16 +56,6 @@ Get-ChildItem 'project' -File -Filter 'txw81x_fpv_v*.bin' -ErrorAction SilentlyC
 
 Push-Location 'project'
 try {
-    & .\BinScript.exe .\BinScript.BinScript *> binscript.log
-    $binScriptRc = $LASTEXITCODE
-    Get-Content binscript.log
-    if ($binScriptRc -ne 0) {
-        throw "BinScript failed with exit code $binScriptRc"
-    }
-
-    $param = Get-Item 'param.bin'
-    Write-Host "Generated param.bin: $($param.Length) bytes"
-
     & .\makecode.exe *> makecode.log
     $makeCodeRc = $LASTEXITCODE
     Get-Content makecode.log
