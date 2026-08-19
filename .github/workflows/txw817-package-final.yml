@@ -1,4 +1,4 @@
-name: TXW817 PACKAGE LINKED IMAGE V2
+name: TXW817 PACKAGE LINKED IMAGE V3
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  package-linked-diag-v2:
+  package-linked-diag-v3:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -24,7 +24,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $raw = [Convert]::FromBase64String((Get-Content -Raw 'diag_input/diag.raw.bin.b64').Trim())
+          $parts = Get-ChildItem 'diag_input/v2.raw.b64.*' | Sort-Object Name
+          if ($parts.Count -ne 5) { throw "Expected 5 linked-image chunks, found $($parts.Count)" }
+          $b64 = (($parts | ForEach-Object { (Get-Content -Raw $_.FullName).Trim() }) -join '')
+          $raw = [Convert]::FromBase64String($b64)
           if ($raw.Length -ne 6824) { throw "Unexpected linked image length: $($raw.Length)" }
           [IO.File]::WriteAllBytes('project/txw817_diag_linked.bin', $raw)
 
@@ -49,8 +52,7 @@ jobs:
           $lines.Add((New-IHexRecord -Address 0 -Type 1 -Data ([byte[]]@())))
           [IO.File]::WriteAllLines('project/project.hex', $lines, [Text.Encoding]::ASCII)
 
-          $decoded = [IO.File]::ReadAllBytes('project/txw817_diag_linked.bin')
-          $text = [Text.Encoding]::ASCII.GetString($decoded)
+          $text = [Text.Encoding]::ASCII.GetString($raw)
           if (-not $text.Contains('TXWDIAG READY')) { throw 'Linked image does not contain TXWDIAG READY marker' }
           if (-not $text.Contains('AT+DIAG=EXEC,')) { throw 'Linked image does not contain EXEC command marker' }
 
@@ -93,7 +95,7 @@ jobs:
       - name: Upload packaged diagnostic firmware
         uses: actions/upload-artifact@v4
         with:
-          name: TXW817-810-diagnostic-firmware-v2
+          name: TXW817-810-diagnostic-firmware-v3
           path: essential
           compression-level: 0
           if-no-files-found: error
