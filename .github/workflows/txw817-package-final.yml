@@ -1,21 +1,34 @@
 name: TXW817 diagnostic package
-on: [push, pull_request, workflow_dispatch]
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - txw817-diag-build
+    paths:
+      - diag_trigger/run.txt
+
 concurrency:
   group: txw817-diagnostic-package
   cancel-in-progress: true
+
 permissions:
   contents: read
+
 jobs:
   package:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - shell: pwsh
+      - name: Package TXW817 diagnostic firmware
+        shell: pwsh
         run: ./diag_input/package.ps1
-      - uses: actions/upload-artifact@v4
+      - name: Upload flashable firmware
+        uses: actions/upload-artifact@v4
         with:
           name: TXW817_810_DIAG_FLASH
           path: essential/TXW817_810_DIAG_FLASH.bin
           compression-level: 0
           if-no-files-found: error
+          retention-days: 7
