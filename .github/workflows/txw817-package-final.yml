@@ -1,7 +1,12 @@
-name: TXW817 diagnostic build and package
+name: TXW817 deterministic diagnostic build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - txw817-diag-build
+    paths:
+      - diag_trigger/run.txt
 
 concurrency:
   group: txw817-diagnostic-package
@@ -11,7 +16,183 @@ permissions:
   contents: read
 
 jobs:
-  hold:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - run: echo "Workflow temporarily held while the deterministic TXW817 build is updated."
+      - uses: actions/checkout@v4
+
+      - name: Install and build with exact TXW81X FLASH configuration
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p _toolchain _diagbuild
+          curl -L --fail --retry 5 --retry-delay 2 \
+            -o /tmp/csky.zip \
+            https://github.com/openLuat/luatos-soc-air101/releases/download/v2001.gcc/csky-elfabiv2-tools-x86_64-minilibc-20230301.zip
+          unzip -q /tmp/csky.zip -d _toolchain
+          TC="$(dirname "$(find _toolchain -type f -name csky-elfabiv2-gcc -perm -111 | head -n 1)")"
+          test -x "$TC/csky-elfabiv2-gcc"
+
+          "$TC/csky-elfabiv2-gcc" -mcpu=ck803s -Os -g \
+            -ffunction-sections -fdata-sections -fno-common -fno-builtin \
+            -D__NO_BOARD_INIT -DTXW81X -DSKB_POOL_ENABLE -DCONFIG_UMAC4 -DCONFIG_SLEEP -DCSKY_OS \
+            -c diag/txw817_810_diag.c -o _diagbuild/diag.o
+
+          "$TC/csky-elfabiv2-gcc" -mcpu=ck803s -g \
+            -c diag/getpc.S -o _diagbuild/getpc.o
+
+          pushd project
+          "$GITHUB_WORKSPACE/$TC/csky-elfabiv2-gcc" -mcpu=ck803s -nostartfiles \
+            "$GITHUB_WORKSPACE/_diagbuild/diag.o" "$GITHUB_WORKSPACE/_diagbuild/getpc.o" \
+            -Wl,-T,"$GITHUB_WORKSPACE/project/utilities/gcc_csky.ld" \
+            -Wl,-zmax-page-size=1024 \
+            -Wl,-Map="$GITHUB_WORKSPACE/_diagbuild/diag.map" \
+            -Wl,--gc-sections -Wl,-u,Reset_Handler \
+            -L"$GITHUB_WORKSPACE/project/utilities" -L"$GITHUB_WORKSPACE/libs" \
+            -Wl,--start-group -lcore -lsysctrl -Wl,--end-group -lgcc \
+            -o "$GITHUB_WORKSPACE/_diagbuild/diag.elf"
+          popd
+
+          "$TC/csky-elfabiv2-objcopy" -O binary _diagbuild/diag.elf _diagbuild/diag.raw.bin
+          "$TC/csky-elfabiv2-objcopy" -O ihex _diagbuild/diag.elf _diagbuild/project.hex
+          "$TC/csky-elfabiv2-objdump" -d _diagbuild/diag.elf > _diagbuild/diag.disasm.txt
+          "$TC/csky-elfabiv2-nm" -n _diagbuild/diag.elf > _diagbuild/diag.nm.txt
+          "$TC/csky-elfabiv2-readelf" -h -S -l _diagbuild/diag.elf > _diagbuild/diag.readelf.txt
+
+      - name: Validate reset vector, SYS_PARAM and diagnostic payload
+        shell: python
+        run: |
+          from pathlib import Path
+          import re, struct
+
+          root = Path('_diagbuild')
+          raw = (root / 'diag.raw.bin').read_bytes()
+          nm = (root / 'diag.nm.txt').read_text()
+
+          def symbol(name):
+              m = re.search(r'^([0-9a-fA-F]+)\s+\S\s+' + re.escape(name) + r'$', nm, re.M)
+              if not m:
+                  raise SystemExit(f'missing symbol: {name}')
+              return int(m.group(1), 16)
+
+          reset = symbol('Reset_Handler')
+          vectors = symbol('__Vectors')
+          sysparam = symbol('sys_factory_param')
+          if vectors != 0x18000000:
+              raise SystemExit(f'bad __Vectors: 0x{vectors:08X}')
+          if sysparam != 0x18000180:
+              raise SystemExit(f'bad SYS_PARAM placement: 0x{sysparam:08X}')
+          if reset != 0x18000980:
+              raise SystemExit(f'bad Reset_Handler placement: 0x{reset:08X}')
+          if struct.unpack_from('<I', raw, 0)[0] != reset:
+              raise SystemExit('vector[0] does not point to Reset_Handler')
+          if struct.unpack_from('<H', raw, 0x180)[0] != 0x0800:
+              raise SystemExit('SYS_PARAM length at 0x180 is not 0x0800')
+          if raw[0x980:0x984] != bytes.fromhex('80c12070'):
+              raise SystemExit('Reset_Handler does not begin with genuine txw81x_startup.o code')
+          for marker in (b'TXWDIAG READY', b'TXWDIAG PONG', b'PA8/PA9', b'TXWDIAG ROMGO'):
+              if marker not in raw:
+                  raise SystemExit(f'missing marker: {marker!r}')
+          if not 4096 <= len(raw) <= 8192:
+              raise SystemExit(f'implausible linked image size: {len(raw)}')
+          print(f'Validated linked image: {len(raw)} bytes, Reset_Handler=0x{reset:08X}, SYS_PARAM=0x0800')
+
+      - name: Upload linked image for vendor packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: txw817-linked-image
+          path: |
+            _diagbuild/project.hex
+            _diagbuild/diag.raw.bin
+            _diagbuild/diag.elf
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: txw817-linked-image
+          path: _diagbuild
+
+      - name: Run the Taixin BinScript and makecode chain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          Copy-Item '_diagbuild/project.hex' 'project/project.hex' -Force
+          Copy-Item 'project/parameter.bincfg' 'project/parameter.cfg' -Force
+
+          $iniPath = 'project/makecode.ini'
+          $ini = Get-Content $iniPath -Raw
+          $ini = [regex]::Replace($ini, '(?mi)^\s*CodeAddrOffset\s*=.*$', 'CodeAddrOffset=c00')
+          $ini = [regex]::Replace($ini, '(?mi)^\s*Post_Script\s*=.*$', 'Post_Script=')
+          [IO.File]::WriteAllText((Resolve-Path $iniPath), $ini, [Text.Encoding]::ASCII)
+
+          Remove-Item 'project/txw81x_fpv.bin', 'project/param.bin', 'project/APP.bin', 'project/program.bin' -Force -ErrorAction SilentlyContinue
+          Get-ChildItem 'project' -File -Filter 'txw81x_fpv_v*.bin' -ErrorAction SilentlyContinue |
+              Remove-Item -Force -ErrorAction SilentlyContinue
+
+          Push-Location project
+          try {
+              & .\BinScript.exe .\BinScript.BinScript
+              if ($LASTEXITCODE -ne 0) { throw "BinScript failed: $LASTEXITCODE" }
+              if (-not (Test-Path '.\txw81x_fpv.bin')) { throw 'BinScript did not create txw81x_fpv.bin' }
+              if (-not (Test-Path '.\param.bin')) { throw 'BinScript did not create param.bin' }
+              if ((Get-Item '.\param.bin').Length -ne 2048) { throw "param.bin is not 2048 bytes" }
+
+              & .\makecode.exe
+              if ($LASTEXITCODE -ne 0) { throw "makecode failed: $LASTEXITCODE" }
+          }
+          finally {
+              Pop-Location
+          }
+
+          $rawA = [IO.File]::ReadAllBytes('_diagbuild/diag.raw.bin')
+          $rawB = [IO.File]::ReadAllBytes('project/txw81x_fpv.bin')
+          if ($rawA.Length -ne $rawB.Length) { throw "BinScript code length changed: $($rawA.Length) -> $($rawB.Length)" }
+          for ($i = 0; $i -lt $rawA.Length; $i++) {
+              if ($rawA[$i] -ne $rawB[$i]) { throw "BinScript code differs at offset 0x$($i.ToString('X'))" }
+          }
+
+          $candidate = Get-ChildItem 'project' -File -Filter 'txw81x_fpv_v*.bin' |
+              Where-Object { $_.Name -notlike '*_compress.bin' -and $_.Length -gt 0 } |
+              Sort-Object LastWriteTimeUtc -Descending |
+              Select-Object -First 1
+          if ($null -eq $candidate) { throw 'makecode produced no packaged firmware' }
+
+          $pkg = [IO.File]::ReadAllBytes($candidate.FullName)
+          if ($pkg.Length -lt 8192 -or $pkg.Length -gt 1048576) { throw "implausible package size: $($pkg.Length)" }
+          $load = [BitConverter]::ToUInt32($pkg, 4)
+          $exec = [BitConverter]::ToUInt32($pkg, 8)
+          $off  = [BitConverter]::ToUInt32($pkg, 12)
+          if ($load -ne 0x18000000 -or $exec -ne 0x18000000 -or $off -ne 0x00000C00) {
+              throw ('bad package header: load=0x{0:X8}, exec=0x{1:X8}, codeoff=0x{2:X8}' -f $load,$exec,$off)
+          }
+          if ([BitConverter]::ToUInt32($pkg, $off) -ne 0x18000980) { throw 'packaged vector[0] is wrong' }
+          if ([BitConverter]::ToUInt16($pkg, $off + 0x180) -ne 0x0800) { throw 'packaged SYS_PARAM is wrong' }
+          if ($pkg[$off + 0x980] -ne 0x80 -or $pkg[$off + 0x981] -ne 0xC1 -or $pkg[$off + 0x982] -ne 0x20 -or $pkg[$off + 0x983] -ne 0x70) {
+              throw 'packaged Reset_Handler bytes are wrong'
+          }
+          $ascii = [Text.Encoding]::ASCII.GetString($pkg)
+          if (-not $ascii.Contains('TXWDIAG READY v=0.2')) { throw 'packaged diagnostic banner is missing' }
+
+          New-Item -ItemType Directory -Path essential -Force | Out-Null
+          Copy-Item $candidate.FullName 'essential/TXW817_810_DIAG_FLASH.bin' -Force
+          Write-Host "FINAL_FIRMWARE=$($candidate.Name) SIZE=$($candidate.Length)"
+
+      - name: Upload flashable image
+        uses: actions/upload-artifact@v4
+        with:
+          name: TXW817_810_DIAG_FLASH_v02
+          path: essential/TXW817_810_DIAG_FLASH.bin
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
