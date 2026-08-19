@@ -1,4 +1,4 @@
-name: TXW817 PACKAGE LINKED IMAGE V3
+name: TXW817 PACKAGE LINKED IMAGE V4
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  package-linked-diag-v3:
+  package-linked-diag-v4:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -26,8 +26,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $parts = Get-ChildItem 'diag_input/v2.raw.b64.*' | Sort-Object Name
           if ($parts.Count -ne 5) { throw "Expected 5 linked-image chunks, found $($parts.Count)" }
+          foreach ($part in $parts) {
+              $partText = (Get-Content -Raw $part.FullName).Trim()
+              $sha = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::ASCII.GetBytes($partText))).ToLowerInvariant()
+              Write-Host "PART $($part.Name) LEN=$($partText.Length) SHA256=$sha"
+          }
           $b64 = (($parts | ForEach-Object { (Get-Content -Raw $_.FullName).Trim() }) -join '')
+          Write-Host "COMBINED BASE64 LEN=$($b64.Length)"
           $raw = [Convert]::FromBase64String($b64)
+          Write-Host "DECODED RAW LEN=$($raw.Length)"
           if ($raw.Length -ne 6824) { throw "Unexpected linked image length: $($raw.Length)" }
           [IO.File]::WriteAllBytes('project/txw817_diag_linked.bin', $raw)
 
@@ -95,7 +102,7 @@ jobs:
       - name: Upload packaged diagnostic firmware
         uses: actions/upload-artifact@v4
         with:
-          name: TXW817-810-diagnostic-firmware-v3
+          name: TXW817-810-diagnostic-firmware-v4
           path: essential
           compression-level: 0
           if-no-files-found: error
