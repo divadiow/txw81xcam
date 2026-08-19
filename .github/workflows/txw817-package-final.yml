@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -146,7 +146,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw "BinScript failed: $LASTEXITCODE" }
               if (-not (Test-Path '.\txw81x_fpv.bin')) { throw 'BinScript did not create txw81x_fpv.bin' }
               if (-not (Test-Path '.\param.bin')) { throw 'BinScript did not create param.bin' }
-              if ((Get-Item '.\param.bin').Length -ne 2048) { throw "param.bin is not 2048 bytes" }
+              if ((Get-Item '.\param.bin').Length -ne 2048) { throw 'param.bin is not 2048 bytes' }
 
               & .\makecode.exe
               if ($LASTEXITCODE -ne 0) { throw "makecode failed: $LASTEXITCODE" }
@@ -196,3 +196,20 @@ jobs:
           compression-level: 0
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publish validated firmware to this branch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path published -Force | Out-Null
+          Copy-Item 'essential/TXW817_810_DIAG_FLASH.bin' 'published/TXW817_810_DIAG_FLASH_v02.bin' -Force
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f published/TXW817_810_DIAG_FLASH_v02.bin
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host 'Published binary already matches; no commit required.'
+          } else {
+              git commit -m 'Publish validated TXW817 diagnostic v0.2 binary'
+              git push origin HEAD:txw817-diag-build
+          }
