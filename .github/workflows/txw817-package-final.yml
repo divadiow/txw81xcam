@@ -1,9 +1,6 @@
-name: TXW817 diagnostic package
+name: TXW817 diagnostic build and package
 
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
@@ -14,19 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  package:
-    runs-on: windows-latest
-    timeout-minutes: 15
+  hold:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Package TXW817 diagnostic firmware
-        shell: pwsh
-        run: ./diag_input/package.ps1
-      - name: Upload flashable firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: TXW817_810_DIAG_FLASH
-          path: essential/TXW817_810_DIAG_FLASH.bin
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 7
+      - run: echo "Workflow temporarily held while the deterministic TXW817 build is updated."
