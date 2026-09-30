@@ -149,6 +149,10 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 	&sp0a20_init,
 #endif
 
+#if DEV_SENSOR_PAS6175
+	&pas6175_init,
+#endif
+
 	NULL,
 };
 
@@ -258,6 +262,10 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 	&sp0a20_cmd,
 #endif
 
+#if DEV_SENSOR_PAS6175
+	&pas6175_cmd,
+#endif
+
 };
 
 // Keep same order as devSensorOPTable - helps ID which driver is used to init sensor
@@ -365,6 +373,10 @@ static const char *devSensorNameTable[] = {
 
 #if DEV_SENSOR_SP0A20
     "sp0a20",
+#endif
+
+#if DEV_SENSOR_PAS6175
+    "pas6175",
 #endif
 };
 

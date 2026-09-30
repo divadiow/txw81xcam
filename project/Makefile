@@ -429,6 +429,7 @@ SRC_C += ../sdk/lib/bus/iic/sensor/sensor_ov7660.c
 SRC_C += ../sdk/lib/bus/iic/sensor/sensor_hi704.c
 SRC_C += ../sdk/lib/bus/iic/sensor/sensor_sp0828.c
 SRC_C += ../sdk/lib/bus/iic/sensor/sensor_sp0a20.c
+SRC_C += ../sdk/lib/bus/iic/sensor/sensor_pas6175.c
 SRC_C += ../sdk/lib/bus/iic/gsensor/da280.c
 SRC_C += ../sdk/lib/bus/iic/gsensor/qma7981.c
 SRC_C += ../sdk/lib/bus/iic/gsensor/sc7a20.c
