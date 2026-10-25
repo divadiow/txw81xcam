@@ -56,6 +56,10 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 	&gc0311_init,
 #endif
 
+#if DEV_SENSOR_GC0310
+	&gc0310_init,
+#endif
+
 #if DEV_SENSOR_GC0312	
 	&gc0312_init,
 #endif
@@ -82,6 +86,10 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 
 #if DEV_SENSOR_OV7725	
 	&ov7725_init,
+#endif
+
+#if DEV_SENSOR_OV7690
+	&ov7690_init,
 #endif
 
 #if DEV_SENSOR_OV7670	
@@ -157,6 +165,42 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 	&bf20a6_init,
 #endif
 
+#if DEV_SENSOR_BF3736
+	&bf3736_init,
+#endif
+
+#if DEV_SENSOR_GC2035
+	&gc2035_init,
+#endif
+
+#if DEV_SENSOR_HI253
+	&hi253_init,
+#endif
+
+#if DEV_SENSOR_OV2655
+	&ov2655_init,
+#endif
+
+#if DEV_SENSOR_SC030
+	&sc030_init,
+#endif
+
+#if DEV_SENSOR_SP0A28
+	&sp0a28_init,
+#endif
+
+#if DEV_SENSOR_SP0A38
+	&sp0a38_init,
+#endif
+
+#if DEV_SENSOR_SP0A39
+	&sp0a39_init,
+#endif
+
+#if DEV_SENSOR_SP2519
+	&sp2519_init,
+#endif
+
 	NULL,
 };
 
@@ -172,6 +216,10 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 
 #if DEV_SENSOR_GC0311	
 	&gc0311_cmd,
+#endif
+
+#if DEV_SENSOR_GC0310
+	&gc0310_cmd,
 #endif
 
 #if DEV_SENSOR_GC0312	
@@ -200,6 +248,10 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 
 #if DEV_SENSOR_OV7725	
 	&ov7725_cmd,
+#endif
+
+#if DEV_SENSOR_OV7690
+	&ov7690_cmd,
 #endif
 
 #if DEV_SENSOR_OV7670	
@@ -274,6 +326,42 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 	&bf20a6_cmd,
 #endif
 
+#if DEV_SENSOR_BF3736
+	&bf3736_cmd,
+#endif
+
+#if DEV_SENSOR_GC2035
+	&gc2035_cmd,
+#endif
+
+#if DEV_SENSOR_HI253
+	&hi253_cmd,
+#endif
+
+#if DEV_SENSOR_OV2655
+	&ov2655_cmd,
+#endif
+
+#if DEV_SENSOR_SC030
+	&sc030_cmd,
+#endif
+
+#if DEV_SENSOR_SP0A28
+	&sp0a28_cmd,
+#endif
+
+#if DEV_SENSOR_SP0A38
+	&sp0a38_cmd,
+#endif
+
+#if DEV_SENSOR_SP0A39
+	&sp0a39_cmd,
+#endif
+
+#if DEV_SENSOR_SP2519
+	&sp2519_cmd,
+#endif
+
 };
 
 // Keep same order as devSensorOPTable - helps ID which driver is used to init sensor
@@ -289,6 +377,10 @@ static const char *devSensorNameTable[] = {
 
 #if DEV_SENSOR_GC0311
     "gc0311",
+#endif
+
+#if DEV_SENSOR_GC0310
+    "gc0310",
 #endif
 
 #if DEV_SENSOR_GC0312
@@ -317,6 +409,10 @@ static const char *devSensorNameTable[] = {
 
 #if DEV_SENSOR_OV7725
     "ov7725",
+#endif
+
+#if DEV_SENSOR_OV7690
+    "ov7690",
 #endif
 
 #if DEV_SENSOR_OV7670
@@ -389,6 +485,42 @@ static const char *devSensorNameTable[] = {
 
 #if DEV_SENSOR_BF20A6
     "bf20a6",
+#endif
+
+#if DEV_SENSOR_BF3736
+    "bf3736",
+#endif
+
+#if DEV_SENSOR_GC2035
+    "gc2035",
+#endif
+
+#if DEV_SENSOR_HI253
+    "hi253",
+#endif
+
+#if DEV_SENSOR_OV2655
+    "ov2655",
+#endif
+
+#if DEV_SENSOR_SC030
+    "sc030",
+#endif
+
+#if DEV_SENSOR_SP0A28
+    "sp0a28",
+#endif
+
+#if DEV_SENSOR_SP0A38
+    "sp0a38",
+#endif
+
+#if DEV_SENSOR_SP0A39
+    "sp0a39",
+#endif
+
+#if DEV_SENSOR_SP2519
+    "sp2519",
 #endif
 };
 

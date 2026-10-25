@@ -295,7 +295,7 @@ void vpp_put_psram(uint32 yuvbuf_addr,uint32 s_w,uint32 s_h);
 #endif
 
 #ifndef DEV_SENSOR_GC2145
-#define DEV_SENSOR_GC2145           0
+#define DEV_SENSOR_GC2145           (0||CMOS_AUTO_LOAD)
 #endif
 
 #ifndef DEV_SENSOR_BF30A2
@@ -324,6 +324,50 @@ void vpp_put_psram(uint32 yuvbuf_addr,uint32 s_w,uint32 s_h);
 
 #ifndef DEV_SENSOR_BF20A6
 #define DEV_SENSOR_BF20A6           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_BF3736
+#define DEV_SENSOR_BF3736           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_GC0310
+#define DEV_SENSOR_GC0310           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_GC2035
+#define DEV_SENSOR_GC2035           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_HI253
+#define DEV_SENSOR_HI253            (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_OV2655
+#define DEV_SENSOR_OV2655           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_OV7690
+#define DEV_SENSOR_OV7690           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_SC030
+#define DEV_SENSOR_SC030            (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_SP0A28
+#define DEV_SENSOR_SP0A28           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_SP0A38
+#define DEV_SENSOR_SP0A38           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_SP0A39
+#define DEV_SENSOR_SP0A39           (0||CMOS_AUTO_LOAD)
+#endif
+
+#ifndef DEV_SENSOR_SP2519
+#define DEV_SENSOR_SP2519           (0||CMOS_AUTO_LOAD)
 #endif
 
 #if DEV_SENSOR_OV7725
@@ -476,6 +520,61 @@ extern SENSOR_OP_SECTION const _Sensor_Adpt_ pas6175_cmd;
 #if DEV_SENSOR_BF20A6
 extern const _Sensor_Ident_ bf20a6_init;
 extern SENSOR_OP_SECTION const _Sensor_Adpt_ bf20a6_cmd;
+#endif
+
+#if DEV_SENSOR_BF3736
+extern const _Sensor_Ident_ bf3736_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ bf3736_cmd;
+#endif
+
+#if DEV_SENSOR_GC0310
+extern const _Sensor_Ident_ gc0310_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ gc0310_cmd;
+#endif
+
+#if DEV_SENSOR_GC2035
+extern const _Sensor_Ident_ gc2035_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ gc2035_cmd;
+#endif
+
+#if DEV_SENSOR_HI253
+extern const _Sensor_Ident_ hi253_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ hi253_cmd;
+#endif
+
+#if DEV_SENSOR_OV2655
+extern const _Sensor_Ident_ ov2655_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ ov2655_cmd;
+#endif
+
+#if DEV_SENSOR_OV7690
+extern const _Sensor_Ident_ ov7690_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ ov7690_cmd;
+#endif
+
+#if DEV_SENSOR_SC030
+extern const _Sensor_Ident_ sc030_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ sc030_cmd;
+#endif
+
+#if DEV_SENSOR_SP0A28
+extern const _Sensor_Ident_ sp0a28_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ sp0a28_cmd;
+#endif
+
+#if DEV_SENSOR_SP0A38
+extern const _Sensor_Ident_ sp0a38_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ sp0a38_cmd;
+#endif
+
+#if DEV_SENSOR_SP0A39
+extern const _Sensor_Ident_ sp0a39_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ sp0a39_cmd;
+#endif
+
+#if DEV_SENSOR_SP2519
+extern const _Sensor_Ident_ sp2519_init;
+extern SENSOR_OP_SECTION const _Sensor_Adpt_ sp2519_cmd;
 #endif
 
 #endif

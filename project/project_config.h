@@ -202,6 +202,18 @@
 #define DEV_SENSOR_SP0A20           1
 #define DEV_SENSOR_PAS6175          1
 #define DEV_SENSOR_BF20A6           1
+#define DEV_SENSOR_BF3736           1
+#define DEV_SENSOR_GC0310           1
+#define DEV_SENSOR_GC2035           1
+#define DEV_SENSOR_GC2145           1
+#define DEV_SENSOR_HI253            1
+#define DEV_SENSOR_OV2655           1
+#define DEV_SENSOR_OV7690           1
+#define DEV_SENSOR_SC030            1
+#define DEV_SENSOR_SP0A28           1
+#define DEV_SENSOR_SP0A38           1
+#define DEV_SENSOR_SP0A39           1
+#define DEV_SENSOR_SP2519           1
 
 /*********************************************************************************************************************** */
 
