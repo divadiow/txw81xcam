@@ -2001,7 +2001,12 @@ bool csi_yuv_mode(){
 	vpp_set_watermark1_mode(vpp_test,0);
 	vpp_set_water1_rc(vpp_test,0);
 	
+#if DEV_SENSOR_BF20A6
+	// Test the factory camera's D5/D6 mapping only when BF20A6 is selected.
+	dvp_set_exchange_d5_d6(dvp_test,p_sensor_cmd == &bf20a6_cmd);
+#else
 	dvp_set_exchange_d5_d6(dvp_test,0);
+#endif
 	
 	os_printf("csi IRQ init\r\n");
 	dvp_request_irq(dvp_test,SII_ISR, (dvp_irq_hdl )&dvp_sip_isr,0);
