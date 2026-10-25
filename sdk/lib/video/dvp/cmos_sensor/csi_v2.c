@@ -153,6 +153,10 @@ static const _Sensor_Ident_ *devSensorInitTable[] = {
 	&pas6175_init,
 #endif
 
+#if DEV_SENSOR_BF20A6
+	&bf20a6_init,
+#endif
+
 	NULL,
 };
 
@@ -266,6 +270,10 @@ static const _Sensor_Adpt_ *devSensorOPTable[] = {
 	&pas6175_cmd,
 #endif
 
+#if DEV_SENSOR_BF20A6
+	&bf20a6_cmd,
+#endif
+
 };
 
 // Keep same order as devSensorOPTable - helps ID which driver is used to init sensor
@@ -377,6 +385,10 @@ static const char *devSensorNameTable[] = {
 
 #if DEV_SENSOR_PAS6175
     "pas6175",
+#endif
+
+#if DEV_SENSOR_BF20A6
+    "bf20a6",
 #endif
 };
 
